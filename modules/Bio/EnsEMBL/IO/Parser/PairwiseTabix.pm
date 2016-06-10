@@ -38,7 +38,6 @@ use strict;
 use warnings;
 use Bio::EnsEMBL::IO::TabixParser;
 use Bio::EnsEMBL::IO::Parser::Pairwise;
-use Bio::DB::HTS::Tabix;
 
 use base qw/Bio::EnsEMBL::IO::TabixParser Bio::EnsEMBL::IO::Parser::Pairwise/;
 

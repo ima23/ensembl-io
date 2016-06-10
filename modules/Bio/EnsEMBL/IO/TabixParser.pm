@@ -37,14 +37,17 @@ use strict;
 use warnings;
 
 use Carp;
-use Bio::DB::HTS::Tabix;
-use Bio::DB::HTS::Tabix::Iterator;
+use Bio::EnsEMBL::IO::Utils qw(dynamic_use);
 
 use base qw/Bio::EnsEMBL::IO::Parser/;
 
 sub open {
   my ($caller, $filename, @other_args) = @_;
   my $class = ref($caller) || $caller;
+
+  ## Dynamically load required modules
+  confess "ERROR: Bio::DB::HTS::Tabix not installed" unless (dynamic_use('Bio::DB::HTS::Tabix') 
+                                                            && dynamic_use('Bio::DB::HTS::Tabix::Iterator'));
 
   my $delimiter = "\t";
   my $self = $class->SUPER::new(@other_args);

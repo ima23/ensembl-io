@@ -19,9 +19,7 @@ limitations under the License.
 package Bio::EnsEMBL::IO::Adaptor::HTSAdaptor;
 use strict;
 
-use Bio::EnsEMBL::Feature;
-use Data::Dumper;
-use Bio::DB::HTS;
+use Bio::EnsEMBL::IO::Utils qw(dynamic_use);
 
 my $DEBUG = 0;
 
@@ -42,6 +40,9 @@ my $snpCode = {
 
 sub new {
   my ($class, $url) = @_;
+
+  ## Dynamically load required modules
+  return undef unless dynamic_use('Bio::DB::HTS::Tabix');
 
   my $self = bless {
     _cache => {},

@@ -21,6 +21,9 @@ package Bio::EnsEMBL::IO::Utils;
 use strict;
 use warnings;
 
+use Exporter qw(import);
+our @EXPORT_OK = qw(format_to_class dynamic_use);
+
 sub format_to_class {
   return (
           'bam'             => 'Bam',
@@ -43,6 +46,21 @@ sub format_to_class {
           'vep_output'      => 'VEP_output',
           'wig'             => 'Wig',
           );
+}
+
+sub dynamic_use {
+  my $classname = shift;
+  my $ok = 0;
+
+  if ($classname) {
+    eval "require $classname";
+    if (!$@) {
+      $classname->import;  
+      $ok = 1;
+    }
+  }
+
+  return $ok;
 }
 
 1;
