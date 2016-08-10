@@ -51,9 +51,6 @@ sub open {
   my $self = $class->SUPER::open($filename, @other_args);
 
   my $tabix_data = $self->{tabix_file}->header;
-  foreach my $line (split("\n",$tabix_data)) {
-    $self->Bio::EnsEMBL::IO::Parser::Pairwise::read_metadata($line);
-  }
 
   $self->{'delimiter'} = $delimiter;
   return $self;
