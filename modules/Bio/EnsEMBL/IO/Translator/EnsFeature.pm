@@ -66,7 +66,7 @@ my %ens_field_callbacks = (seqname => 'seqname',
 
 sub new {
     my ($class) = @_;
-  
+
     my $self = $class->SUPER::new();
 
     # Once we have the instance, add our customized callbacks
@@ -137,8 +137,8 @@ sub end {
     my $end = $object->seq_region_end();
 
     # the start coordinate of the feature, here shifted to chromosomal coordinates
-    # Start and end must be in ascending order for GXF. Circular genomes require the length of 
-    # the circuit to be added on.    
+    # Start and end must be in ascending order for GXF. Circular genomes require the length of
+    # the circuit to be added on.
     if( $object->seq_region_start() > $object->seq_region_end() ) {
 	if ($object->slice() && $object->slice()->is_circular() ) {
 	    $end = $end + $object->seq_region_length;
@@ -260,8 +260,8 @@ sub attributes {
 		$attrs{$attribute} = join (',',map { uri_escape($_,'\t\n\r;=%&,') } grep { defined $_ } @{$summary{$attribute}});
 	    }
 	} else {
-	    if (defined $summary{$attribute}) { 
-		$attrs{$attribute} = uri_escape($summary{$attribute},'\t\n\r;=%&,'); 
+	    if (defined $summary{$attribute}) {
+		$attrs{$attribute} = uri_escape($summary{$attribute},'\t\n\r;=%&,');
 	    }
 	}
     }
@@ -402,17 +402,24 @@ sub add_attr {
 sub so_term {
     my $self = shift;
     my $object = shift;
-    
-    my $so_term = eval { $self->so_mapper()->to_name($object); };
-    if($@) {
-	throw sprintf "Unable to map feature %s to SO term.\n$@", $object->display_id;
-    }
 
-    if ($so_term eq 'protein_coding_gene') { 
-    # Special treatment for protein_coding_gene, as more commonly expected term is 'gene'
-	$so_term = 'gene';
+    my $so_term = "unset" ;
+		if ($object->isa('Bio::EnsEMBL::Transcript'))
+    {
+      $so_term = "transcript" ;
+		}
+    elsif ($object->isa('Bio::EnsEMBL::Gene'))
+    {
+      $so_term = "gene" ;
+		}
+    elsif ($object->isa('Bio::EnsEMBL::Exon'))
+    {
+      $so_term = "exon" ;
+		}
+    elsif ($object->isa('Bio::EnsEMBL::CDS'))
+    {
+      $so_term = "CDS" ;
     }
-
     return $so_term;
 }
 
