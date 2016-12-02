@@ -51,9 +51,11 @@ sub open {
 
   my $self = $class->SUPER::open($filename, @other_args);
 
-  my $tabix_data = $self->{tabix_file}->header;
-  foreach my $line (split("\n",$tabix_data)) {
-    $self->Bio::EnsEMBL::IO::Parser::BaseVCF4::read_metadata($line);
+  my $tabix_header_data = $self->{tabix_file}->header;
+  if( $tabix_header_data ) {
+    foreach my $line (split("\n",$tabix_header_data)) {
+      $self->Bio::EnsEMBL::IO::Parser::BaseVCF4::read_metadata($line);
+    }
   }
 
   return $self;
