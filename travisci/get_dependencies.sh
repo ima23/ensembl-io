@@ -10,9 +10,3 @@ echo 'Getting HTSlib'
 if [ ! -d htslib ]; then
   git clone --branch master --depth 1 https://github.com/samtools/htslib.git
 fi
-
-echo 'Getting jksrc'
-if [ ! -f jksrc.zip ]; then
-  wget http://hgdownload.cse.ucsc.edu/admin/jksrc.zip
-  unzip -q jksrc.zip
-fi

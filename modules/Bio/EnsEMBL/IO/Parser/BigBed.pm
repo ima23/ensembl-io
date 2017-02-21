@@ -51,27 +51,24 @@ sub init {
                           'age'         => 'score',
                           };
 
-  my $autoSQL = $fh->bigBedAs;
+  my $autoSQL = $fh->get_autosql();
   my $column_map = {};
   my $i = 0;
-  while ($autoSQL) {
-    next unless $autoSQL->isTable; 
+  if ($autoSQL && $autoSQL->is_table()) {
     my @table;
-    my $cols = $autoSQL->columnList;
-    while ($cols) {
+    my $fields = $autoSQL->fields();
+    foreach my $f (@{$fields}) {
       my $real_name;
       ## Check for incomplete AutoSQL
-      if (($cols->name =~ /^field\d+$/ || $cols->comment eq 'Undocumented field') && $i < scalar @{$self->{'default_names'}}) { 
+      if (($f->name =~ /^field\d+$/ || $f->comment eq 'Undocumented field') && $i < scalar @{$self->{'default_names'}}) { 
         $real_name = $self->{'default_names'}[$i];
       }
       else {
-        $real_name = $self->{'alt_names'}{$cols->name} || $cols->name;
+        $real_name = $self->{'alt_names'}{$f->name} || $f->name;
       }
       $column_map->{$real_name} = $i;
       $i++;
-      $cols = $cols->next;
     }
-    $autoSQL = $autoSQL->next;
   }
   if (keys %$column_map) {
     $self->{'column_map'} = $column_map;
@@ -94,17 +91,6 @@ sub init {
                           };
   }
 }
- 
-=head2 type
-
-    Description : Return case-correct version of format name, for use in method names 
-    Returntype  : String
-
-=cut
-
-sub type {
-    return 'bigBed'; 
-}
 
 =head2 seek
 
@@ -125,12 +111,16 @@ sub seek {
     return unless $seq_id;
 
     ## Remember this method takes half-open coords (subtract 1 from start)
-    my $list_head = $fh->bigBedIntervalQuery("$seq_id", $start-1, $end);
+    my $string = 1;
+    my $entries = $fh->get_entries("$seq_id", ($start-1), $end, $string);
 
     my $feature_cache = $self->cache->{'features'};
 
-    for (my $i=$list_head->head; $i; $i=$i->next) {
-      my @line = ($chr_id, $i->start, $i->end, split(/\t/,$i->rest));
+    foreach my $entry (@{$entries}) {
+      my @line = ($chr_id, $entry->{start}, $entry->{end});
+      if(exists $entry->{string}) {
+        push(@line, split(/\t/, $entry->{string}));
+      }
       push @$feature_cache, \@line;
     }
     return unless scalar @$feature_cache;
@@ -149,7 +139,7 @@ sub seek {
 
 sub fetch_summary_data {
     my ($self, @args) = @_;
-    
+    die 'Cannot fetch summary data for a BigBed file';
     ## In effect we're creating a bedGraph, so tell the Bed parser this
     $self->{'metadata'}{'type'} = 'bedGraph';
     $self->SUPER::fetch_summary_data(@args);

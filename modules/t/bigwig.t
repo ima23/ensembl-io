@@ -23,24 +23,24 @@ use Bio::EnsEMBL::IO::Parser::BigWig;
 ## Test 1
 ######################################################
 my $parser = Bio::EnsEMBL::IO::Parser::BigWig->open("modules/t/input/data-variableStep.bw");
-ok($parser->seek(1, 1, 100));
+ok($parser->seek(1, 1, 15), 'Can query for the right region (chr 1, start 1, end 15)');
 
-ok($parser->next);
-ok($parser->get_seqname eq '1');
-ok($parser->get_start == 1);
-ok($parser->get_end == 2);
-ok($parser->get_score == 2);
+ok($parser->next, 'Can iterate');
+is($parser->get_seqname, '1', 'Seq name');
+is($parser->get_start, 1, 'Start');
+is($parser->get_end, 2, 'End');
+is($parser->get_score, 1, 'Score');
 
-for (my $i = 1; $i < 4; $i++) {
-  ok($parser->next);
-  ok($parser->get_seqname eq '1');
-  my $start = $i * 2 + 1;
-  ok($parser->get_start == $start);
-  ok($parser->get_end == $start + 1);
-  ok($parser->get_score == $i + 2);
+for (my $i = 1; $i <= 4; $i++) {
+  ok($parser->next, 'Iterate block '.$i);
+  is($parser->get_seqname, '1', 'Seq name block '.$i);
+  my $start = ($i * 2);
+  is($parser->get_start, $start, 'Start '.$i);
+  is($parser->get_end, $start + 1, 'End '.$i);
+  is($parser->get_score, $i + 1, 'Score '.$i);
 }
 
-ok(!$parser->next);
+ok(!$parser->next, 'No more data left');
 
 $parser->close();
 
@@ -48,17 +48,17 @@ $parser->close();
 ## Test 2
 ######################################################
 $parser = Bio::EnsEMBL::IO::Parser::BigWig->open('modules/t/input/data-fixedStep.bw');
-ok($parser->seek(1, 1, 100));
+ok($parser->seek(1, 1, 15), 'Can query for new file acrros right region (chr 1, start 1, end 15)');
 
-for (my $i = 1; $i < 10; $i ++) {
-  ok($parser->next);
-  ok($parser->get_seqname eq '1');
-  ok($parser->get_start == $i);
-  ok($parser->get_end == $i + 1);
-  ok($parser->get_score == $i);
+for (my $i = 1; $i <= 10; $i ++) {
+  ok($parser->next, 'Can interate');
+  is($parser->get_seqname, '1', 'Seq name '.$i);
+  is($parser->get_start, $i, 'Start '.$i);
+  is($parser->get_end, $i + 1, 'End '.$i);
+  is($parser->get_score, ($i-1), 'Score '.$i);
 }
 
-ok(!$parser->next);
+ok(!$parser->next, 'No more data left');
 $parser->close();
 
 done_testing;

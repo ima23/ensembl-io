@@ -44,9 +44,7 @@ before_install:
 install:
     - export CWD=$PWD
     - export DEPS=$HOME/dependencies
-    - export KENT_SRC="$DEPS/kent/src"
     - export HTSLIB_DIR=$DEPS/htslib
-    - export MACHTYPE=$(uname -m)
     - export CFLAGS="-fPIC"
     - export PERL5LIB=$DEPS/bioperl-live-bioperl-release-1-2-3:$PERL5LIB
     - cd $DEPS
@@ -55,6 +53,8 @@ install:
     - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
     - cpanm -v --installdeps --notest .
     - cpanm Bio::DB::HTS
+    - cpanm Alien::LibBigWig
+    - cpanm Bio::DB::Big
     - cpanm -n Devel::Cover::Report::Coveralls
     - cpanm -n DBD::SQLite
 #    - cp travisci/MultiTestDB.conf.travisci.mysql  modules/t/MultiTestDB.conf.mysql

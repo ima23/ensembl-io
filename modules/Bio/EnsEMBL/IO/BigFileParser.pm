@@ -31,11 +31,14 @@ use warnings;
 use List::Util qw(max);
 use POSIX qw(floor ceil);
 
-use Bio::DB::BigFile;
-use Bio::DB::BigFile::Constants;
+use Bio::DB::Big;
 use Bio::EnsEMBL::IO::Utils;
 
 use parent qw(Bio::EnsEMBL::IO::Parser);
+
+BEGIN {
+  Bio::DB::Big->init();
+}
 
 =head2 new
 
@@ -96,17 +99,16 @@ sub open {
  
     ## Cache the chromosome list from the file, mapping Ensembl's non-'chr' names 
     ## to the file's actual chromosome names
-    my $list = $fh->chromList;
-    my $head = $list->head;
+    my $chromosomes_hash = $fh->chroms();
     my $chromosomes = {};
     my $chr_sizes   = {};
-    do {
-      if ($head->name && $head->size) {
-        (my $chr = $head->name) =~ s/^chr//;
-        $chromosomes->{$chr} = $head->name;
-        $chr_sizes->{$chr} = $head->size;
-      }
-    } while ($head && ($head = $head->next));
+    foreach my $chr_name (%{$chromosomes_hash}) {
+      my $details = $chromosomes_hash->{$chr_name};
+      my $chr = $chr_name;
+      $chr =~ s/^chr//;
+      $chromosomes->{$chr} = $details->{name};
+      $chr_sizes->{$chr} = $details->{length};
+    }
     #use Data::Dumper; warn Dumper($chromosomes);
     $self->{cache}{chromosomes} = $chromosomes;
     $self->{cache}{chr_sizes}   = $chr_sizes;
@@ -180,149 +182,8 @@ sub cache {
 
 sub open_file {
   my $self = shift;
-
-  Bio::DB::BigFile->set_udc_defaults;
-
-  my $method = $self->type.'FileOpen';
-  $self->{cache}->{file_handle} ||= Bio::DB::BigFile->$method($self->url);
+  $self->{cache}->{file_handle} ||= Bio::DB::Big->open($self->url);
   return $self->{cache}->{file_handle};
-}
-
-=head2 fetch_summary_data 
-
-    Description: fetches data from the requested region, grouped into 
-                  a set number of bins, and caches it
-    Returntype : Void
-
-=cut
-
-sub fetch_summary_data {
-    my ($self, $chr_id, $start, $end, $bins) = @_;
-    
-    my $fh = $self->open_file;
-    warn "Failed to open file ".$self->url unless $fh;
-    return unless $fh;
-
-    ## Get the internal chromosome name
-    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
-    return unless $seq_id;
-
-    my $method = $self->type.'SummaryArray';
-    my $list = $fh->$method("$seq_id", $start-1, $end, bbiSumMean, $bins);
-    my $bin_size = floor(($end - $start)/$bins);
-
-    my $feature_cache = []; 
-
-    foreach (@$list) {
-      next unless defined($_);
-      my @line = ($chr_id, $start, $start + $bin_size, $_);
-      $start += $bin_size;
-      push @$feature_cache, \@line;
-    }
-
-    $self->cache->{'summary'} = $feature_cache;
-}
-
-=head2 fetch_summary_array
-
-    Description: fetches values only from the requested region 
-    Returntype : ArrayRef
-
-=cut
-
-sub fetch_summary_array {
-    my ($self, $chr_id, $start, $end, $bins) = @_;
-
-    my $fh = $self->open_file;
-    warn "Failed to open file ".$self->url unless $fh;
-    return unless $fh;
-
-    ## Get the internal chromosome name
-    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
-    return unless $seq_id;
-
-    ## Get whole chromosome if not defined
-    unless ($start && $end) {
-      $start = 1;
-      $end   = $self->cache->{'chr_sizes'}{$chr_id};
-    }
-
-    my $method = $self->type.'SummaryArray';
-    return $fh->$method("$seq_id", $start-1, $end, bbiSumMean, $bins);
-}
-
-=head2 fetch_summary_array_extended
-
-    Description: fetches data hashes from the requested region, containing the mean, min and max for each bin 
-    Returntype : ArrayRef
-
-=cut
-
-sub fetch_summary_array_extended {
-    my ($self, $chr_id, $start, $end, $bins) = @_;
-
-    my $fh = $self->open_file;
-    warn "Failed to open file ".$self->url unless $fh;
-    return unless $fh;
-
-    ## Get the internal chromosome name
-    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
-    return unless $seq_id;
-
-    ## Get whole chromosome if not defined
-    unless ($start && $end) {
-      $start = 1;
-      $end   = $self->cache->{'chr_sizes'}{$chr_id};
-    }
-
-    my $method = $self->type.'SummaryArrayExtended';
-    my $stats = $fh->$method("$seq_id", $start-1, $end, $bins);
-    my $scores = [];
-    my $max;
-    
-    foreach (@$stats) {
-      my $bin_min = sprintf('%.2f', $_->{'minVal'});
-      my $bin_max = sprintf('%.2f', $_->{'maxVal'});
-      my $mean    = $_->{'validCount'}
-                          ? sprintf('%.2f', ($_->{'sumData'} / $_->{'validCount'}))
-                          : 0;
-
-      push @$scores, {'mean' => $mean,
-                      'min' => $bin_min,
-                      'max' => $bin_max,
-                      };
-      $max = $mean if (!defined($max) || $max < $mean);
-    }
-    return ($scores, $max);
-}
-
-
-=head2 fetch_rows
-
-    Description: fetches rows for a requested region
-    Returntype: Arrayref
-
-=cut
-
-sub fetch_rows {
-    my ($self, $chr_id, $start, $end, $coderef) = @_;
-
-    my $fh = $self->open_file;
-    warn "Failed to open file ".$self->url unless $fh;
-    return unless $fh;
-
-    ## Get the internal chromosome name
-    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
-    return unless $seq_id;
-
-    my $method = $self->type.'IntervalQuery';
-
-    my $list_head = $fh->$method("$seq_id",$start-1,$end);
-
-    for (my $i = $list_head->head; $i; $i = $i->next) {
-      my @bedline = ($chr_id, $i->start, $i->end, split(/\t/,$i->rest));
-      &{$coderef}(@bedline);
-    }
 }
 
 =head2 next_block

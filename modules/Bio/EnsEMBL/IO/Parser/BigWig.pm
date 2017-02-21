@@ -60,18 +60,75 @@ sub seek {
     my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
     return unless $seq_id;
 
-    my $list = $fh->bigWigIntervalQuery("$seq_id", $start, $end);
-
+    my $intervals = $fh->get_intervals("$seq_id", $start-1, $end);
     my $feature_cache = $self->cache->{'features'};
-
-    for (my $i = $list->head; $i; $i = $i->next) {
-      my @line = ($chr_id, $i->start-1, $i->end, $i->value);
-      push @$feature_cache, \@line;
+    foreach my $i (@{$intervals}) {
+      push(@{$feature_cache}, [$chr_id, ($i->{start}), ($i->{end}+1), $i->{value}]);
     }
     ## pre-load peek buffer
     $self->next_block();
 }
 
+=head2 fetch_summary_data
+
+    Description: fetches data from the requested region, grouped into
+                  a set number of bins, and caches it
+    Returntype : Void
+
+=cut
+
+sub fetch_summary_data {
+    my ($self, $chr_id, $start, $end, $bins) = @_;
+
+    my $fh = $self->open_file;
+    warn "Failed to open file ".$self->url unless $fh;
+    return unless $fh;
+
+    ## Get the internal chromosome name
+    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
+    return unless $seq_id;
+
+    my $list = $fh->get_stats("$seq_id", $start-1, $end, "mean", $bins);
+    my $bin_size = floor(($end - $start)/$bins);
+
+    my $feature_cache = [];
+
+    foreach my $value (@$list) {
+      next unless defined($_);
+      my $line = [$chr_id, $start, $start + $bin_size, $value];
+      $start += $bin_size;
+      push @$feature_cache, $line;
+    }
+
+    $self->cache->{'summary'} = $feature_cache;
+}
+
+=head2 fetch_summary_array
+
+    Description: fetches values only from the requested region
+    Returntype : ArrayRef
+
+=cut
+
+sub fetch_summary_array {
+    my ($self, $chr_id, $start, $end, $bins) = @_;
+
+    my $fh = $self->open_file;
+    warn "Failed to open file ".$self->url unless $fh;
+    return unless $fh;
+
+    ## Get the internal chromosome name
+    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
+    return unless $seq_id;
+
+    ## Get whole chromosome if not defined
+    unless ($start && $end) {
+      $start = 1;
+      $end   = $self->cache->{'chr_sizes'}{$chr_id};
+    }
+
+    return $fh->get_stats("$seq_id", $start-1, $end, "mean", $bins);
+}
 
 =head2 get_raw_chrom
 
