@@ -50,16 +50,9 @@ sub type {
 =cut
 
 sub seek {
-    my ($self, $chr_id, $start, $end) = @_;
-
-    my $fh = $self->open_file;
-    warn "Failed to open file ".$self->url unless $fh;
-    return unless $fh;
-
-    ## Get the internal chromosome name
-    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
-    return unless $seq_id;
-
+  my ($self, $chr_id, $start, $end) = @_;
+  return $self->_query_file($chr_id, sub {
+    my ($fh, $seq_id) = @_;
     my $intervals = $fh->get_intervals("$seq_id", $start-1, $end);
     my $feature_cache = $self->cache->{'features'};
     foreach my $i (@{$intervals}) {
@@ -67,40 +60,40 @@ sub seek {
     }
     ## pre-load peek buffer
     $self->next_block();
+  });
 }
 
 =head2 fetch_summary_data
 
     Description: fetches data from the requested region, grouped into
-                  a set number of bins, and caches it
+                  a set number of bins, and caches it. Bins without a value 
+                  will still be returned but as an undefined value
     Returntype : Void
 
 =cut
 
 sub fetch_summary_data {
-    my ($self, $chr_id, $start, $end, $bins) = @_;
+  my ($self, $chr_id, $start, $end, $bins) = @_;
 
-    my $fh = $self->open_file;
-    warn "Failed to open file ".$self->url unless $fh;
-    return unless $fh;
-
-    ## Get the internal chromosome name
-    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
-    return unless $seq_id;
-
+  $self->_query_file($chr_id, sub {
+    my ($fh, $seq_id) = @_;
+    
     my $list = $fh->get_stats("$seq_id", $start-1, $end, "mean", $bins);
     my $bin_size = floor(($end - $start)/$bins);
 
     my $feature_cache = [];
 
     foreach my $value (@$list) {
-      next unless defined($_);
+      # Value could be undefined. We still want it though ...
       my $line = [$chr_id, $start, $start + $bin_size, $value];
       $start += $bin_size;
       push @$feature_cache, $line;
     }
 
     $self->cache->{'summary'} = $feature_cache;
+  });
+  
+  return $self->cache->{'summary'};
 }
 
 =head2 fetch_summary_array
@@ -111,15 +104,12 @@ sub fetch_summary_data {
 =cut
 
 sub fetch_summary_array {
-    my ($self, $chr_id, $start, $end, $bins) = @_;
-
-    my $fh = $self->open_file;
-    warn "Failed to open file ".$self->url unless $fh;
-    return unless $fh;
-
-    ## Get the internal chromosome name
-    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
-    return unless $seq_id;
+  my ($self, $chr_id, $start, $end, $bins) = @_;
+  
+  return $self->_query_file($chr_id, sub {
+    my ($fh, $seq_id) = @_;
+    my $list = $fh->get_stats("$seq_id", $start-1, $end, "mean", $bins);
+    my $bin_size = floor(($end - $start)/$bins);
 
     ## Get whole chromosome if not defined
     unless ($start && $end) {
@@ -128,6 +118,7 @@ sub fetch_summary_array {
     }
 
     return $fh->get_stats("$seq_id", $start-1, $end, "mean", $bins);
+  });
 }
 
 =head2 get_raw_chrom

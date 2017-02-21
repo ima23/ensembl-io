@@ -100,16 +100,17 @@ sub open {
     ## Cache the chromosome list from the file, mapping Ensembl's non-'chr' names 
     ## to the file's actual chromosome names
     my $chromosomes_hash = $fh->chroms();
+    
     my $chromosomes = {};
     my $chr_sizes   = {};
-    foreach my $chr_name (%{$chromosomes_hash}) {
+    foreach my $chr_name (keys %{$chromosomes_hash}) {
       my $details = $chromosomes_hash->{$chr_name};
-      my $chr = $chr_name;
+      my $chr = "$chr_name";
       $chr =~ s/^chr//;
       $chromosomes->{$chr} = $details->{name};
+      $chromosomes->{$chr_name} = $details->{name};
       $chr_sizes->{$chr} = $details->{length};
     }
-    #use Data::Dumper; warn Dumper($chromosomes);
     $self->{cache}{chromosomes} = $chromosomes;
     $self->{cache}{chr_sizes}   = $chr_sizes;
 
@@ -117,6 +118,22 @@ sub open {
     $self->init($fh); 
 
     return $self;
+}
+
+sub _query_file {
+  my ($self, $chr_id, $callback) = @_;
+  my $fh = $self->open_file;
+  warn "Failed to open file ".$self->url unless $fh;
+  return unless $fh;
+  
+  ## Get the internal chromosome name
+  my $seq_id = $self->cache->{chromosomes}{"$chr_id"};
+  if(!$seq_id) {
+    warn 'No seq id could be found for '.$chr_id;
+    return;
+  }
+  
+  return $callback->($fh, $seq_id);
 }
 
 =close

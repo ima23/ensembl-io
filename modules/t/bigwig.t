@@ -48,7 +48,7 @@ $parser->close();
 ## Test 2
 ######################################################
 $parser = Bio::EnsEMBL::IO::Parser::BigWig->open('modules/t/input/data-fixedStep.bw');
-ok($parser->seek(1, 1, 15), 'Can query for new file acrros right region (chr 1, start 1, end 15)');
+ok($parser->seek(1, 1, 15), 'Can query for new file across right region (chr 1, start 1, end 15)');
 
 for (my $i = 1; $i <= 10; $i ++) {
   ok($parser->next, 'Can interate');

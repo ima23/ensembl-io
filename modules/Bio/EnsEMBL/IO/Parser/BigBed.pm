@@ -100,15 +100,10 @@ sub init {
 =cut
 
 sub seek {
-    my ($self, $chr_id, $start, $end) = @_;
+  my ($self, $chr_id, $start, $end) = @_;
 
-    my $fh = $self->open_file;
-    warn "Failed to open file ".$self->url unless $fh;
-    return unless $fh;
-
-    ## Get the internal chromosome name
-    my $seq_id = $self->cache->{'chromosomes'}{$chr_id};
-    return unless $seq_id;
+  return $self->_query_file($chr_id, sub {
+    my ($fh, $seq_id) = @_;
 
     ## Remember this method takes half-open coords (subtract 1 from start)
     my $string = 1;
@@ -127,6 +122,7 @@ sub seek {
 
     ## pre-load peek buffer
     $self->next_block();
+  });
 }
 
 =head2 fetch_summary_data 
