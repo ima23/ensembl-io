@@ -19,7 +19,13 @@ limitations under the License.
 
 =head1 NAME
 
-Bio::EnsEMBL::IO::Parser::BigBed - A line-based parser devoted to BigBed
+Bio::EnsEMBL::IO::Parser::BigBed - A line-based parser devoted to BigBed.
+
+=head1 DESCRIPTION
+
+A wrapper around B<Bio::DB::Big> to provide Ensembl style coordinates and feature
+translation from UCSC formats. This module and subroutines are geared towards parsing BigBed that
+encodes for transcript models.
 
 =cut
 
@@ -147,6 +153,19 @@ sub fetch_summary_data {
 
 
 #### Override the BED raw accessors, because AutoSQL
+
+=head2 get_raw_columns
+
+    Description: Returns a copy of the entire record array. Use this if your BigBed file contains 
+                 odd fields and you want to use AutoSQL records to decipher the contents
+    Returntype : ArrayRef[bedfields]
+
+=cut
+
+sub get_raw_columns {
+  my $self = shift;
+  return [@{$self->{'record'}}];
+}
 
 =head2 get_raw_chrom
 
