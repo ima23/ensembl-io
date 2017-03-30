@@ -22,6 +22,7 @@ use Bio::EnsEMBL::IO::Parser::BigWig;
 ######################################################
 ## Test 1
 ######################################################
+diag 'Testing variable step bigwig';
 my $parser = Bio::EnsEMBL::IO::Parser::BigWig->open("modules/t/input/data-variableStep.bw");
 ok($parser->seek(1, 1, 15), 'Can query for the right region (chr 1, start 1, end 15)');
 
@@ -42,11 +43,30 @@ for (my $i = 1; $i <= 4; $i++) {
 
 ok(!$parser->next, 'No more data left');
 
+diag 'Testing summary code';
+{  
+  my $summary_array = $parser->fetch_summary_array('chr1', 1, 15, 5);
+  is(scalar(@{$summary_array}), 5, 'Expect 5 bins returned');
+  is_deeply($summary_array,[1.5,3.5,5.0,undef,undef], 'Checking summary array values');
+
+
+  my $summary_data = $parser->fetch_summary_data('chr1', 1, 15, 5);
+  is(scalar(@{$summary_data}), 5, 'Expect 5 bins returned');
+  is_deeply($summary_data,[
+    ['chr1', 1, 3, 1.5],
+    ['chr1', 4, 6, 3.5],
+    ['chr1', 7, 9, 5.0],
+    ['chr1', 10, 12, undef],
+    ['chr1', 13, 15, undef],
+  ], 'Checking all bin summaries returned as expected') or diag explain $summary_data;
+}
+
 $parser->close();
 
 ######################################################
 ## Test 2
 ######################################################
+diag 'Testing fixed step bigwig';
 $parser = Bio::EnsEMBL::IO::Parser::BigWig->open('modules/t/input/data-fixedStep.bw');
 ok($parser->seek(1, 1, 15), 'Can query for new file across right region (chr 1, start 1, end 15)');
 
@@ -60,5 +80,22 @@ for (my $i = 1; $i <= 10; $i ++) {
 
 ok(!$parser->next, 'No more data left');
 $parser->close();
+
+diag 'Testing summary code';
+{  
+  my $summary_array = $parser->fetch_summary_array('chr1', 1, 15, 5);
+  is(scalar(@{$summary_array}), 5, 'Expect 5 bins returned');
+  is_deeply($summary_array,[1.0,4.0,7.0,9.0,undef], 'Checking summary array values');
+
+  my $summary_data = $parser->fetch_summary_data('chr1', 1, 15, 5);
+  is(scalar(@{$summary_data}), 5, 'Expect 5 bins returned');
+  is_deeply($summary_data,[
+    ['chr1', 1, 3, 1.0],
+    ['chr1', 4, 6, 4.0],
+    ['chr1', 7, 9, 7.0],
+    ['chr1', 10, 12, 9.0],
+    ['chr1', 13, 15, undef],
+  ], 'Checking all bin summaries returned as expected') or diag explain $summary_data;
+}
 
 done_testing;
