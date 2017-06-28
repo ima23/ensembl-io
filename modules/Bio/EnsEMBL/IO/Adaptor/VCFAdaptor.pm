@@ -23,45 +23,108 @@ use strict;
 use EnsEMBL::Web::Utils::FormatText qw(date_format);
 use File::Path qw(make_path);
 
-use Vcf;
+use parent qw(Bio::EnsEMBL::IO::Adaptor::HTSAdaptor);
+
 my $DEBUG = 0;
 
-my $snpCode = {
-    'AG' => 'R',
-    'GA' => 'R',
-    'AC' => 'M',
-    'CA' => 'M',
-    'AT' => 'W',
-    'TA' => 'W',
-    'CT' => 'Y',
-    'TC' => 'Y',
-    'CG' => 'S',
-    'GC' => 'S',
-    'TG' => 'K',
-    'GT' => 'K'
-};
+sub hts_open {
+  my $self = shift;
 
-sub new {
-  my ($class, $url, $hub) = @_;
-  my $self = bless {
-    _cache => {},
-    _url => $url,
-    _hub => $hub,
-  }, $class;
-      
-  return $self;
+  $self->{_cache}->{_htsobj_handle} ||= Bio::DB::HTS::VCF->new(filename => $self->url);
+  return $self->{_cache}->{_htsobj_handle};
 }
 
-sub url { return $_[0]->{'_url'} };
-
-sub hub { return $_[0]->{'_hub'} };
-
-sub snp_code {
-    my ($self, $allele) = @_;
-    
-    return $snpCode->{$allele};
+sub htsfile_open {
+  my $self = shift;
+  
+  if (!$self->{_cache}->{_htsfile_handle}) {
+    #if (Bio::DB::HTSfile->can('set_udc_defaults')) {
+    #  Bio::DB::HTSfile->set_udc_defaults;
+    #}
+    $self->{_cache}->{_htsfile_handle} = $self->{_cache}->{_htsobj_handle}->{vcf_file}; 
+  }
+  return $self->{_cache}->{_htsfile_handle};
 }
 
+sub htsfile_close {
+  my $self = shift;
+  
+  if ($self->{_cache}->{_htsfile_handle}) {
+    $self->{_cache}->{_htsfile_handle}->close();
+  }
+  return;
+}
+
+sub get_header {
+  my $self = shift;
+
+  my $hts_obj = $self->hts_open;
+  unless ($hts_obj) {
+    warn "Failed to open file " . $self->url;
+    return undef;
+  }
+  my $header = $hts_obj->header;
+  unless ($header) {
+    warn "Failed to get header for file " . $self->url;
+    return undef;
+  }
+  return $header;
+}
+
+
+# UCSC prepend 'chr' on human chr ids. These are in some of the BAM
+# files. This method returns a possibly modified chr_id after
+# checking whats in the bam file
+sub munge_chr_id {
+  my ($self, $chr_id) = @_;
+
+  my $header    = $self->get_header;
+  return undef unless $header;
+  my $seqnames  = $header->get_seqnames;
+
+  # Check we get values back for seq region. May need to add 'chr' or 'Chr'
+  if (grep { $_ eq $chr_id} @$seqnames) {
+    $self->htsfile_close() ;
+    return "$chr_id";
+  }
+  elsif (grep {$_ eq "chr$chr_id"} @$seqnames) {
+    $self->htsfile_close() ;
+    return "chr$chr_id";
+  }
+  return undef;
+}
+
+sub fetch_variations {
+### Get variant info from a VCF file
+  my ($self, $chr_id, $start, $end) = @_;
+
+  if ($DEBUG) {
+    warn "*** variations for: $chr_id, $start, $end\n";
+  }
+
+  ## Tabix will want to write the downloaded index file to 
+  ## the current working directory. By default this is '/'
+  my $time = date_format(time(), '%y-%m-%d');
+  my $path = $SiteDefs::ENSEMBL_USERDATA_DIR."/temporary/vcf_tabix/$time/";
+  chdir($path);
+
+  my $vcf = $self->hts_open;
+  return [] unless $vcf;
+
+  my $variants = [];
+
+  # Maybe need to add 'chr'
+  my $seq_id = $self->munge_chr_id($chr_id);
+  return [] if !defined($seq_id);
+
+  my $header = $self->get_header;
+  return [] unless $header;
+
+  return $variants;
+}
+
+
+=pod
 
 sub fetch_variations {
   my ($self, $chr, $s, $e) = @_;
@@ -100,5 +163,7 @@ sub fetch_variations {
   }
   return $self->{_cache}->{features};
 }
+
+=cut
 
 1;
