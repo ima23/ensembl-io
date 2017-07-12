@@ -22,6 +22,7 @@ use strict;
 
 use EnsEMBL::Web::Utils::FormatText qw(date_format);
 use File::Path qw(make_path);
+use Bio::DB::HTS::VCF;
 
 use parent qw(Bio::EnsEMBL::IO::Adaptor::HTSAdaptor);
 
@@ -29,6 +30,13 @@ my $DEBUG = 0;
 
 sub hts_open {
   my $self = shift;
+
+  ## Tabix will want to write the downloaded index file to 
+  ## the current working directory. By default this is '/'
+  my $time = date_format(time(), '%y-%m-%d'); 
+  my $path = $SiteDefs::ENSEMBL_USERDATA_DIR."/temporary/vcf_tabix/$time/";
+  make_path($path);
+  chdir($path);
 
   $self->{_cache}->{_htsobj_handle} ||= Bio::DB::HTS::VCF->new(filename => $self->url);
   return $self->{_cache}->{_htsobj_handle};
@@ -80,7 +88,7 @@ sub munge_chr_id {
 
   my $header    = $self->get_header;
   return undef unless $header;
-  my $seqnames  = $header->get_seqnames;
+  my $seqnames  = $header->get_seqnames || [];
 
   # Check we get values back for seq region. May need to add 'chr' or 'Chr'
   if (grep { $_ eq $chr_id} @$seqnames) {
@@ -102,25 +110,17 @@ sub fetch_variations {
     warn "*** variations for: $chr_id, $start, $end\n";
   }
 
-  ## Tabix will want to write the downloaded index file to 
-  ## the current working directory. By default this is '/'
-  my $time = date_format(time(), '%y-%m-%d');
-  my $path = $SiteDefs::ENSEMBL_USERDATA_DIR."/temporary/vcf_tabix/$time/";
-  chdir($path);
-
   my $vcf = $self->hts_open;
   return [] unless $vcf;
-
-  my $variants = [];
 
   # Maybe need to add 'chr'
   my $seq_id = $self->munge_chr_id($chr_id);
   return [] if !defined($seq_id);
 
-  my $header = $self->get_header;
-  return [] unless $header;
+  my @variants = (); # $vcf->get_features_by_location(-seq_id => $seq_id, -start => $start, -end => $end);
+  warn ">>> VARIANTS @variants";
 
-  return $variants;
+  return \@variants;
 }
 
 
