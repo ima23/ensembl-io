@@ -17,6 +17,7 @@ use strict;
 use warnings;
 
 use Test::More;
+use Test::Exception;
 use Bio::EnsEMBL::IO::Parser::VCF4Tabix;
 
 my $test_file = "modules/t/input/data.vcf.gz";
@@ -114,6 +115,19 @@ ok($parser->get_metadata_description('INFO', 'DP') eq 'Total Depth', 'getMetaDes
 
 ok ($parser->close(), "Closing file");
 
+note "\n> Testing reading bgz files:\n";
+my $test_file2 = 'modules/t/input/data.vcf.bgz';
+my $parser2 = Bio::EnsEMBL::IO::Parser::VCF4Tabix->open($test_file2);
+$parser2->seek(1,875500,876000);
+note "Record 1 again";
+ok ($parser2->next(), "Loading first record");
+my @test_row2 = qw(1	875539	rs4970377	C	A	.	PASS	AA=.;DP=129;GP=1:885676;BN=111	GT:GQ:DP	1|1:100:43	1|1:49:26	1|1:100:47);
+is_deeply($parser2->{'record'},\@test_row2,"Test basic parsing of a row");
+ok ($parser2->close(), "Closing file");
+
+note "\n> Testing reading non bgz/bz files:\n";
+my $test_file3 = 'modules/t/input/data.vcf';
+throws_ok(sub{ Bio::EnsEMBL::IO::Parser::VCF4Tabix->open($test_file3)}, qr/ERROR: Input file is not bgzipped, cannot use tabix/, 'Test unsupported input file format');
 done_testing();
 
 
